@@ -1,0 +1,71 @@
+name: Rix Job
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Task prompt for the rix coding agent'
+        required: true
+      agent:
+        description: 'Coding agent to run'
+        required: false
+        default: claude
+        type: choice
+        options:
+          - claude
+          - opencode
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: rix-job
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Run Rix Job
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install rix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p rix-bin rix-dl
+          gh release download --repo Tim-Pohlmann/rix --pattern "rix-*-linux-x64.tar.gz*" --dir rix-dl
+          (cd rix-dl && sha256sum -c ./*.sha256)
+          tar -xzf rix-dl/*.tar.gz -C rix-bin
+          chmod +x rix-bin/rix
+
+      - name: Run rix job
+        env:
+          RIX_REPO: ${{ github.repository }}
+          RIX_PROMPT: ${{ inputs.prompt }}
+          RIX_AGENT: ${{ inputs.agent }}
+          RIX_READ_TOKEN: ${{ github.token }}
+          RIX_OUTPUT_DIR: ${{ github.workspace }}/rix-output
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p "$RIX_OUTPUT_DIR"
+          rix-bin/rix job
+
+      - name: Submit pull requests
+        if: always()
+        env:
+          RIX_REPO: ${{ github.repository }}
+          RIX_WRITE_TOKEN: ${{ github.token }}
+          RIX_INPUT_DIR: ${{ github.workspace }}/rix-output
+        run: |
+          if [ -f "$RIX_INPUT_DIR/result.json" ]; then
+            rix-bin/rix submit
+          else
+            echo "No result.json produced by the job; skipping submit."
+          fi
+
+      - name: Upload job output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rix-job-output
+          path: rix-output
