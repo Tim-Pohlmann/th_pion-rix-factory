@@ -5,11 +5,14 @@ on:
       prompt:
         description: Task for the agent
         required: true
+      repo:
+        description: "Target repo (owner/name); defaults to this repo"
+        required: false
 jobs:
   rix:
     uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
     with:
-      repo: ${{ github.repository }}
+      repo: ${{ inputs.repo || github.repository }}
       prompt: ${{ inputs.prompt }}
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
