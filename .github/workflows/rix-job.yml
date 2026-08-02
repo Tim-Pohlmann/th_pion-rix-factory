@@ -1,5 +1,9 @@
 name: rix
 on:
+  # TEMPORARY, for pre-merge testing only: workflow_dispatch can't be triggered from a
+  # non-default branch until the workflow file lands on main. Revert before merging.
+  push:
+    branches: [worktree-bridge-cse_01S2YHwsNQaS9bc3YLk7J3Hg]
   workflow_dispatch:
     inputs:
       prompt:
@@ -13,7 +17,7 @@ jobs:
     uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
     with:
       repo: ${{ inputs.repo || github.repository }}
-      prompt: ${{ inputs.prompt }}
+      prompt: ${{ inputs.prompt || 'Add a one-line note to README.md saying this repo is the rix dispatch factory.' }}
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
       write-token: ${{ secrets.RIX_WRITE_TOKEN }}
