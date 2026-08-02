@@ -11,8 +11,6 @@ jobs:
     with:
       repo: ${{ github.repository }}
       prompt: ${{ inputs.prompt }}
-      agent: opencode
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
       write-token: ${{ secrets.RIX_WRITE_TOKEN }}
-      agent-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
