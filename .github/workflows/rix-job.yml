@@ -16,8 +16,46 @@ jobs:
   rix:
     uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
     with:
-      repo: ${{ inputs.repo || github.repository }}
-      prompt: ${{ inputs.prompt || 'Add a one-line note to README.md saying this repo is the rix dispatch factory.' }}
+      # TEMP: hardcoded target + real bug-fix prompt for this one test dispatch; revert to
+      # inputs.repo/inputs.prompt before merge.
+      repo: Tim-Pohlmann/rix
+      prompt: |
+        Fix a bug in the reusable job workflow that causes every `rix job` run to fail when
+        the caller's with: block omits max-tokens/timeout (the common case).
+
+        Root cause: .github/workflows/job.yml declares `max-tokens` and `timeout` as
+        workflow_call inputs of `type: number` with no default. When a caller doesn't set
+        them, GitHub Actions resolves the inputs.max-tokens / inputs.timeout expressions to
+        `0` (not empty/null). job.yml passes that straight to
+        .github/actions/run-rix-job/action.yml's `max-tokens`/`timeout` inputs, and the
+        composite action's script unconditionally exports that as the
+        RIX_MAX_TOKENS/RIX_TIMEOUT env vars. src/Rix/Cli/CliOptions.cs's
+        ParseResultExtensions.Int reads that env var via int.TryParse, getting 0 (not null).
+        src/Rix/Job/JobConfig.cs then does `inputs.MaxTokens ?? DefaultMaxTokens`, which only
+        substitutes the default when the value is null - since it's 0, not null, that check
+        is skipped, and the `resolvedMaxTokens <= 0` validation rejects it with "error:
+        --max-tokens must be a positive integer" (same for --timeout). This makes every job
+        run fail unless the caller explicitly passes max-tokens/timeout.
+
+        Confirmed live at
+        https://github.com/Tim-Pohlmann/th_pion-rix-factory/actions/runs/30768840796 (job run
+        91552301696), dispatched with no max-tokens/timeout set.
+
+        Fix this in the GitHub Actions glue, not the C# validation logic in JobConfig.cs (0
+        should still be rejected if a caller explicitly passes it - the bug is "unset"
+        silently becoming 0, not that 0 is being validated at all). The fix belongs in
+        .github/actions/run-rix-job/action.yml: only export RIX_MAX_TOKENS/RIX_TIMEOUT (or
+        only pass --max-tokens/--timeout) when the caller actually provided a positive value;
+        leave them unset otherwise so rix's own defaults (JobConfig.DefaultMaxTokens = 50000,
+        DefaultTimeoutMinutes = 30) apply.
+
+        Add or extend a test (e.g. the agent-plumbing job in .github/workflows/ci.yml, or a
+        bats test under tests/e2e) that runs a job with max-tokens and timeout both omitted,
+        to catch a regression here in the future.
+
+        Open a PR with the fix.
+      max-tokens: 50000
+      timeout: 30
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
       write-token: ${{ secrets.RIX_WRITE_TOKEN }}
