@@ -6,13 +6,13 @@ on:
         description: Task for the agent
         required: true
       repo:
-        description: "Target repo (owner/name); defaults to this repo"
+        description: "Target repo name; the owner is always Tim-Pohlmann; defaults to this repo"
         required: false
 jobs:
   rix:
     uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
     with:
-      repo: ${{ inputs.repo || github.repository }}
+      repo: Tim-Pohlmann/${{ inputs.repo || github.event.repository.name }}
       prompt: ${{ inputs.prompt }}
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
