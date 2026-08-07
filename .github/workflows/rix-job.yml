@@ -3,17 +3,69 @@ on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: Task for the agent
-        required: true
+        description: >-
+          Task for the agent, passed inline. GitHub caps a workflow_dispatch run's combined input
+          payload at 65,535 characters, so use the prompt-file input instead for anything larger.
+          Provide exactly one of prompt or prompt-file.
+        required: false
+      prompt-file:
+        description: >-
+          Path (inside the target repo's default branch) to a file whose contents become the task
+          prompt. Read at run time, so it is not limited by the workflow_dispatch input payload cap.
+          Provide exactly one of prompt or prompt-file.
+        required: false
       repo:
         description: "Target repo name; the owner is always Tim-Pohlmann; defaults to this repo"
         required: false
+permissions:
+  contents: read
 jobs:
+  resolve-prompt:
+    name: Resolve task prompt
+    runs-on: ubuntu-latest
+    outputs:
+      prompt: ${{ steps.resolve.outputs.prompt }}
+    steps:
+      - name: Check out target repo
+        if: ${{ inputs.prompt-file != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: Tim-Pohlmann/${{ inputs.repo || github.event.repository.name }}
+          token: ${{ secrets.RIX_READ_TOKEN }}
+      - name: Resolve prompt
+        id: resolve
+        env:
+          PROMPT_INPUT: ${{ inputs.prompt }}
+          PROMPT_FILE: ${{ inputs.prompt-file }}
+        run: |
+          if [ -n "$PROMPT_INPUT" ] && [ -n "$PROMPT_FILE" ]; then
+            echo "::error::Provide only one of prompt or prompt-file, not both." >&2
+            exit 1
+          fi
+          if [ -n "$PROMPT_FILE" ]; then
+            if [ ! -f "$PROMPT_FILE" ]; then
+              echo "::error::prompt-file '$PROMPT_FILE' was not found in the target repo." >&2
+              exit 1
+            fi
+            prompt="$(cat "$PROMPT_FILE")"
+          else
+            prompt="$PROMPT_INPUT"
+          fi
+          if [ -z "$prompt" ]; then
+            echo "::error::Provide a task prompt via the prompt input or the prompt-file input." >&2
+            exit 1
+          fi
+          delimiter="rix_prompt_EOF_$RANDOM"
+          echo "prompt<<$delimiter" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$prompt" >> "$GITHUB_OUTPUT"
+          echo "$delimiter" >> "$GITHUB_OUTPUT"
   rix:
+    name: Run rix job
+    needs: resolve-prompt
     uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
     with:
       repo: Tim-Pohlmann/${{ inputs.repo || github.event.repository.name }}
-      prompt: ${{ inputs.prompt }}
+      prompt: ${{ needs.resolve-prompt.outputs.prompt }}
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
       write-token: ${{ secrets.RIX_WRITE_TOKEN }}
