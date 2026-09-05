@@ -1,0 +1,21 @@
+name: rix (dispatched CI failure)
+
+# Receives a repository_dispatch fired by a project repo when its CI fails (see that repo's
+# "notify factory" workflow) and hands off to rix's on-ci-failure.yml, which re-verifies the
+# run actually failed before building a prompt and running the job. Centralizing here means
+# project repos never need RIX_READ_TOKEN/RIX_WRITE_TOKEN — only a narrowly-scoped PAT that can
+# dispatch to this repo.
+on:
+  repository_dispatch:
+    types: [rix-ci-failure]
+
+jobs:
+  rix:
+    uses: Tim-Pohlmann/rix/.github/workflows/on-ci-failure.yml@main
+    with:
+      repo: ${{ github.event.client_payload.repo }}
+      run-id: ${{ github.event.client_payload.run_id }}
+    secrets:
+      read-token: ${{ secrets.RIX_READ_TOKEN }}
+      write-token: ${{ secrets.RIX_WRITE_TOKEN }}
+      agent-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
