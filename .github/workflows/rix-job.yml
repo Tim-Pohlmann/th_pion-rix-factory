@@ -10,10 +10,13 @@ on:
         required: false
 jobs:
   rix:
-    uses: Tim-Pohlmann/rix/.github/workflows/job.yml@main
+    uses: Tim-Pohlmann/rix/.github/workflows/job.yml@v0
     with:
       repo: Tim-Pohlmann/${{ inputs.repo || github.event.repository.name }}
       prompt: ${{ inputs.prompt }}
+      agent: claude
+      agent-api-key-env: CLAUDE_CODE_OAUTH_TOKEN
     secrets:
       read-token: ${{ secrets.RIX_READ_TOKEN }}
       write-token: ${{ secrets.RIX_WRITE_TOKEN }}
+      agent-api-key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
