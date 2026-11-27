@@ -1,4 +1,4 @@
-name: rix
+name: rix (agent)
 on:
   workflow_dispatch:
     inputs:
@@ -10,10 +10,14 @@ on:
         required: false
 jobs:
   rix:
-    uses: Tim-Pohlmann/rix/.github/workflows/job.yml@v0
+    uses: Tim-Pohlmann/rix/.github/workflows/agent.yml@v0
     with:
+      # Any repo read-token reaches; the PR only opens where write-token can push.
       repo: Tim-Pohlmann/${{ inputs.repo || github.event.repository.name }}
       prompt: ${{ inputs.prompt }}
+      # Copies this repo's .rix/agent-home into the runner's home before the agent starts. The run
+      # fails while that directory is missing.
+      factory-repo: ${{ github.repository }}
       agent: claude
       agent-api-key-env: CLAUDE_CODE_OAUTH_TOKEN
     secrets:
